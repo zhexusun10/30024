@@ -186,7 +186,7 @@ def search(
     # A*搜索算法的实现
     def a_star_search() -> list[MoveAction] | None:
         # 优先队列：(f值, 唯一id, 位置)
-        open_list = [(cached_heuristic(red_pos), 0, red_pos)]
+        open_list = [(simple_heuristic(red_pos), 0, red_pos)]
         # 唯一id计数器（用于优先队列中相同f值的比较）
         counter = 1
         # 每个位置的g值（从起点到当前位置的实际成本）
@@ -231,7 +231,7 @@ def search(
                     # 更新g值
                     g_values[next_pos] = new_g
                     # 计算f值：g值 + 启发值
-                    f_value = new_g + cached_heuristic(next_pos)
+                    f_value = new_g + simple_heuristic(next_pos)
                     # 添加到开启列表
                     heapq.heappush(open_list, (f_value, counter, next_pos))
                     counter += 1
