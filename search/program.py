@@ -5,6 +5,7 @@ from .core import CellState, Coord, Direction, MoveAction, BOARD_N
 from .utils import render_board
 import heapq
 from collections import defaultdict
+import math
 
 
 def search(
@@ -40,10 +41,6 @@ def search(
     
     if red_pos is None:
         return None  # 没有红蛙
-    
-    # 定义启发函数：到达第7行的估计成本
-    def heuristic(pos: Coord) -> int:
-        return 7 - pos.r
     
     # 检查坐标是否在棋盘边界内（不允许循环）
     def is_valid_coord(r: int, c: int) -> bool:
@@ -148,10 +145,50 @@ def search(
         
         return possible_moves
     
+    # 改进的启发函数：考虑一步内能前进的最大行数
+    def heuristic(pos: Coord) -> int:
+        r = pos.r
+        
+        # 如果已经到达目标行，返回0
+        if r == 7:
+            return 0
+        
+        # 计算所有可能的移动
+        possible_moves = get_possible_moves(pos)
+        
+        # 找出一步内能达到的最大行数
+        max_row = r
+        for next_pos, _ in possible_moves:
+            max_row = max(max_row, next_pos.r)
+        
+        # 计算每步能前进的最大行数（至少为1，避免除以0）
+        max_adv = max(max_row - r, 1)
+        
+        # 估计到达第7行需要的最少步数
+        return math.ceil((7 - r) / max_adv)
+    
+    # 简单启发函数：直接使用距离终点的行数
+    def simple_heuristic(pos: Coord) -> int:
+        return 7 - pos.r
+    
+    # 缓存启发函数的结果，避免重复计算
+    heuristic_cache = {}
+    
+    # 包装启发函数，加入缓存机制
+    def cached_heuristic(pos: Coord) -> int:
+        # 如果已经计算过，直接返回缓存结果
+        if pos in heuristic_cache:
+            return heuristic_cache[pos]
+        
+        # 计算启发值并缓存
+        h_value = heuristic(pos)
+        heuristic_cache[pos] = h_value
+        return h_value
+    
     # A*搜索算法的实现
     def a_star_search() -> list[MoveAction] | None:
         # 优先队列：(f值, 唯一id, 位置)
-        open_list = [(heuristic(red_pos), 0, red_pos)]
+        open_list = [(cached_heuristic(red_pos), 0, red_pos)]
         # 唯一id计数器（用于优先队列中相同f值的比较）
         counter = 1
         # 每个位置的g值（从起点到当前位置的实际成本）
@@ -184,7 +221,10 @@ def search(
             closed_list.add(current_pos)
             
             # 获取所有可能的移动
-            for next_pos, directions in get_possible_moves(current_pos):
+            possible_moves = get_possible_moves(current_pos)
+            
+            # 遍历所有可能的移动
+            for next_pos, directions in possible_moves:
                 # 计算新的g值（增加1表示执行了一次移动）
                 new_g = g_values[current_pos] + 1
                 
@@ -193,7 +233,7 @@ def search(
                     # 更新g值
                     g_values[next_pos] = new_g
                     # 计算f值：g值 + 启发值
-                    f_value = new_g + heuristic(next_pos)
+                    f_value = new_g + cached_heuristic(next_pos)
                     # 添加到开启列表
                     heapq.heappush(open_list, (f_value, counter, next_pos))
                     counter += 1
