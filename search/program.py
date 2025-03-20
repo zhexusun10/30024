@@ -126,16 +126,14 @@ def search(
                     new_directions = directions.copy()
                     new_directions.append(direction)
                     
+                    # 将每个有效的跳跃点添加到可能移动中（包括中间点）
+                    possible_moves.append((lily_pos, new_directions))
+                    
                     new_visited = visited.copy()
                     new_visited.add(lily_pos)
                     
                     # 递归寻找从新位置开始的连续跳跃
-                    if find_jump_paths(lily_pos, new_directions, new_visited):
-                        # 找到了更远的跳跃，此位置不是终点
-                        pass
-                    else:
-                        # 没有更远的跳跃，此位置是终点，添加到结果
-                        possible_moves.append((lily_pos, new_directions))
+                    find_jump_paths(lily_pos, new_directions, new_visited)
             
             # 返回是否找到了下一步跳跃
             return found_next_jump
