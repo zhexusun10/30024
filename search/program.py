@@ -32,7 +32,7 @@ def search(
     # codes, set the `ansi` flag to True to print a colour-coded version!
     print(render_board(board, ansi=True))
 
-    # 找到红蛙的初始位置
+    # Find the initial position of the red frog
     red_pos = None
     for coord, state in board.items():
         if state == CellState.RED:
@@ -40,36 +40,36 @@ def search(
             break
     
     if red_pos is None:
-        return None  # 没有红蛙
+        return None  # No red frog found
     
-    # 检查坐标是否在棋盘边界内（不允许循环）
+    # Check if the coordinate is within the board boundaries (no looping allowed)
     def is_valid_coord(r: int, c: int) -> bool:
         return 0 <= r < BOARD_N and 0 <= c < BOARD_N
     
-    # 获取目标坐标（不使用Coord类的自动循环功能）
+    # Get target coordinate (without using Coord class's automatic looping feature)
     def get_target_coord(pos: Coord, dr: int, dc: int) -> tuple[int, int]:
         return pos.r + dr, pos.c + dc
     
-    # 获取坐标的所有可能移动（包括连跳）
+    # Get all possible moves from a coordinate (including consecutive jumps)
     def get_possible_moves(current_pos: Coord) -> list[tuple[Coord, list[Direction]]]:
         possible_moves = []
         
-        # 允许的移动方向（不能往上）
+        # Allowed movement directions (cannot move upward)
         allowed_directions = [
             Direction.Down, Direction.DownLeft, Direction.DownRight,
             Direction.Left, Direction.Right
         ]
         
-        # 处理单步移动（移动到相邻的荷叶）
+        # Handle single-step moves (move to adjacent lily pad)
         for direction in allowed_directions:
-            # 计算目标位置（不使用自动循环）
+            # Calculate target position (without automatic looping)
             r, c = get_target_coord(current_pos, direction.r, direction.c)
             
-            # 检查是否在棋盘边界内
+            # Check if within board boundaries
             if not is_valid_coord(r, c):
                 continue
             
-            # 尝试创建目标位置的坐标
+            # Try to create a coordinate for the target position
             try:
                 next_pos = Coord(r, c)
             except ValueError:
@@ -78,18 +78,16 @@ def search(
             if next_pos in board and board[next_pos] == CellState.LILY_PAD:
                 possible_moves.append((next_pos, [direction]))
         
-        # 处理连续跳跃
-        # 递归函数：从某个位置开始，找出所有可能的连续跳跃路径
+        # Handle consecutive jumps
+        # Recursive function: from a certain position, find all possible consecutive jump paths
         def find_jump_paths(pos, directions, visited):
-            # 标记是否找到了下一步跳跃
-            found_next_jump = False
-            
-            # 尝试各个方向的跳跃
+        
+            # Try jumps in each direction
             for direction in allowed_directions:
-                # 计算蓝蛙的位置
+                # Calculate the blue frog's position
                 r1, c1 = get_target_coord(pos, direction.r, direction.c)
                 
-                # 检查是否在边界内
+                # Check if within boundaries
                 if not is_valid_coord(r1, c1):
                     continue
                 
@@ -98,14 +96,14 @@ def search(
                 except ValueError:
                     continue
                 
-                # 检查是否有蓝蛙
+                # Check if there is a blue frog
                 if blue_pos not in board or board[blue_pos] != CellState.BLUE:
                     continue
                 
-                # 计算跳跃后的位置
+                # Calculate the position after the jump
                 r2, c2 = get_target_coord(blue_pos, direction.r, direction.c)
                 
-                # 检查是否在边界内
+                # Check if within boundaries
                 if not is_valid_coord(r2, c2):
                     continue
                 
@@ -114,95 +112,73 @@ def search(
                 except ValueError:
                     continue
                 
-                # 检查跳跃后是否为荷叶，且未访问过
+                # Check if the landing position is a lily pad and not visited before
                 if (lily_pos in board and 
                     board[lily_pos] == CellState.LILY_PAD and 
                     lily_pos not in visited):
                     
-                    # 找到了一个有效跳跃
-                    found_next_jump = True
-                    
-                    # 更新方向列表和访问记录
+                    # Update the direction list and visited record
                     new_directions = directions.copy()
                     new_directions.append(direction)
                     
-                    # 将每个有效的跳跃点添加到可能移动中（包括中间点）
+                    # Add each valid jump point to possible moves (including intermediate points)
                     possible_moves.append((lily_pos, new_directions))
                     
                     new_visited = visited.copy()
                     new_visited.add(lily_pos)
                     
-                    # 递归寻找从新位置开始的连续跳跃
+                    # Recursively find consecutive jumps from the new position
                     find_jump_paths(lily_pos, new_directions, new_visited)
             
-            # 返回是否找到了下一步跳跃
-            return found_next_jump
+            return 
         
-        # 从当前位置开始寻找所有可能的连续跳跃
+        # Find all possible consecutive jumps starting from the current position
         find_jump_paths(current_pos, [], {current_pos})
         
         return possible_moves
     
-    # 改进的启发函数：考虑一步内能前进的最大行数
-    def heuristic(pos: Coord) -> int:
+    # Improved heuristic function: considers the maximum number of rows that can be advanced in one step
+    def advanced_heuristic(pos: Coord) -> int:
         r = pos.r
         
-        # 如果已经到达目标行，返回0
+        # If already at the target row, return 0
         if r == 7:
             return 0
         
-        # 计算所有可能的移动
+        # Calculate all possible moves
         possible_moves = get_possible_moves(pos)
         
-        # 找出一步内能达到的最大行数
+        # Find the maximum row that can be reached in one step
         max_row = r
         for next_pos, _ in possible_moves:
             max_row = max(max_row, next_pos.r)
         
-        # 计算每步能前进的最大行数（至少为1，避免除以0）
+        # Calculate the maximum number of rows that can be advanced per step (at least 1, to avoid division by zero)
         max_adv = max(max_row - r, 1)
         
-        # 估计到达第7行需要的最少步数
+        # Estimate the minimum number of steps needed to reach row 7
         return math.ceil((7 - r) / max_adv)
     
-    # 简单启发函数：直接使用距离终点的行数
-    def simple_heuristic(pos: Coord) -> int:
-        return 7 - pos.r
-    
-    # 缓存启发函数的结果，避免重复计算
-    heuristic_cache = {}
-    
-    # 包装启发函数，加入缓存机制
-    def cached_heuristic(pos: Coord) -> int:
-        # 如果已经计算过，直接返回缓存结果
-        if pos in heuristic_cache:
-            return heuristic_cache[pos]
-        
-        # 计算启发值并缓存
-        h_value = heuristic(pos)
-        heuristic_cache[pos] = h_value
-        return h_value
-    
-    # A*搜索算法的实现
+    # Implementation of A* search algorithm
     def a_star_search() -> list[MoveAction] | None:
-        # 优先队列：(f值, 唯一id, 位置)
-        open_list = [(simple_heuristic(red_pos), 0, red_pos)]
-        # 唯一id计数器（用于优先队列中相同f值的比较）
+        # Priority queue: (f-value, unique id, position)
+        open_list = [(advanced_heuristic(red_pos), 0, red_pos)]
+        # Unique id counter (for comparing items with the same f-value in the priority queue)
         counter = 1
-        # 每个位置的g值（从起点到当前位置的实际成本）
+        # g-value for each position (actual cost from start to current position)
         g_values = {red_pos: 0}
-        # 每个位置的前驱（位置和移动）
+        # Predecessor for each position (position and move)
         came_from = {}
-        # 已访问的位置集合
+        # Set of visited positions
         closed_list = set()
         
         while open_list:
-            # 取出f值最小的状态
+            # Extract the state with the smallest f-value
             _, _, current_pos = heapq.heappop(open_list)
             
-            # 如果是目标状态（到达第7行）
+            # If it's the goal state (reached row 7)
             if current_pos.r == 7:
-                # 重建路径
+                # Reconstruct the path
                 path = []
                 pos = current_pos
                 while pos in came_from:
@@ -211,37 +187,37 @@ def search(
                     pos = prev_pos
                 return list(reversed(path))
             
-            # 如果已经访问过，跳过
+            # If already visited, skip
             if current_pos in closed_list:
                 continue
             
-            # 标记为已访问
+            # Mark as visited
             closed_list.add(current_pos)
             
-            # 获取所有可能的移动
+            # Get all possible moves
             possible_moves = get_possible_moves(current_pos)
             
-            # 遍历所有可能的移动
+            # Iterate through all possible moves
             for next_pos, directions in possible_moves:
-                # 计算新的g值（增加1表示执行了一次移动）
+                # Calculate new g-value (add 1 to represent one move execution)
                 new_g = g_values[current_pos] + 1
                 
-                # 如果这个位置没有访问过，或者找到了更短的路径
+                # If this position hasn't been visited, or a shorter path to a position already in the g-value dictionary is found
                 if next_pos not in g_values or new_g < g_values[next_pos]:
-                    # 更新g值
+                    # Update g-value
                     g_values[next_pos] = new_g
-                    # 计算f值：g值 + 启发值
-                    f_value = new_g + simple_heuristic(next_pos)
-                    # 添加到开启列表
+                    # Calculate f-value: g-value + heuristic value
+                    f_value = new_g + advanced_heuristic(next_pos)
+                    # Add to open list
                     heapq.heappush(open_list, (f_value, counter, next_pos))
                     counter += 1
-                    # 记录前驱
+                    # Record predecessor
                     move_action = MoveAction(current_pos, directions)
                     came_from[next_pos] = (current_pos, move_action)
         
-        # 如果开启列表为空仍未找到目标，则无解
+        # If the open list becomes empty without finding the goal, there is no solution
         return None
     
-    # 执行A*搜索
+    # Execute A* search
     return a_star_search()
 
